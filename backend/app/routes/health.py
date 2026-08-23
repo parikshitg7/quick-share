@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from app.database import supabase
+from app.services.storage import upload_test_object, download_test_object
 
 router = APIRouter()
 
@@ -14,8 +15,19 @@ def health_db_check():
         response = supabase.postgrest.from_("").select("*").execute()
         return {"database": "connected"}
     except Exception as e:
-        # If the client reached Supabase and received an API response/exception, connection is verified
         err_str = str(e)
         if "PGRST" in err_str or "205" in err_str or "status_code" in dir(e):
             return {"database": "connected"}
         return {"database": "error", "detail": err_str}
+
+@router.get("/health/storage")
+def health_storage_check():
+    try:
+        test_content = "healthcheck-ok"
+        upload_test_object(content=test_content)
+        read_back = download_test_object()
+        if read_back == test_content:
+            return {"storage": "connected"}
+        return {"storage": "error", "detail": "Content mismatch"}
+    except Exception as e:
+        return {"storage": "error", "detail": str(e)}
