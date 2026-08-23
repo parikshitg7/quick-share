@@ -1,10 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import health
+from app.routes import health, rooms, items
 
 app = FastAPI(title="Quick Share API", version="1.0")
 
-# Enable CORS for local development (allow all origins per blueprint defaults)
+# Enable CORS for local development
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -13,7 +13,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Register routers
 app.include_router(health.router)
+app.include_router(rooms.router)
+app.include_router(items.router)
 
 @app.get("/")
 def root():
