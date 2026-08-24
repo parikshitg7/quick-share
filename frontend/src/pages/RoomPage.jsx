@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { getRoom, getItems } from '../services/api';
 import TextDropForm from '../components/TextDropForm';
+import FileDropZone from '../components/FileDropZone';
 import ItemList from '../components/ItemList';
 import RoomAccessPanel from '../components/RoomAccessPanel';
 
@@ -59,6 +60,8 @@ function RoomPage() {
       {/* Room Access Panel with QR Code and Short Code */}
       <RoomAccessPanel roomId={room.id} shortCode={room.short_code} />
 
+      {/* Upload Triggers */}
+      <FileDropZone roomId={roomId} onItemAdded={handleItemAdded} />
       <TextDropForm roomId={roomId} onItemAdded={handleItemAdded} />
 
       <h2>Shared Items</h2>

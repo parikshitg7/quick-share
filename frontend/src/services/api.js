@@ -44,13 +44,42 @@ export async function getRoomByCode(shortCode) {
 }
 
 export async function createTextItem(roomId, content) {
+  const formData = new FormData();
+  formData.append('type', 'text');
+  formData.append('content', content);
+
   const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/items`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ type: 'text', content }),
+    body: formData,
   });
   if (!response.ok) {
     throw new Error(`Failed to create item: ${response.statusText}`);
+  }
+  return await response.json();
+}
+
+export async function uploadFileItem(roomId, file) {
+  const formData = new FormData();
+  
+  // Infer type from MIME type
+  let type = 'file';
+  if (file.type.startsWith('image/')) {
+    type = 'image';
+  } else if (file.type.startsWith('video/')) {
+    type = 'video';
+  }
+
+  formData.append('type', type);
+  formData.append('file', file);
+
+  const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/items`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Upload failed: ${response.statusText}`);
   }
   return await response.json();
 }
@@ -61,4 +90,8 @@ export async function getItems(roomId) {
     throw new Error(`Failed to fetch items: ${response.statusText}`);
   }
   return await response.json();
+}
+
+export function getItemDownloadUrl(itemId) {
+  return `${API_BASE_URL}/items/${itemId}/download`;
 }

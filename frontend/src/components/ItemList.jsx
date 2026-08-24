@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { getItemDownloadUrl } from '../services/api';
 
 function ItemList({ items }) {
   const [copiedId, setCopiedId] = useState(null);
@@ -18,38 +19,109 @@ function ItemList({ items }) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-      {items.map((item) => (
-        <div
-          key={item.id}
-          style={{
-            border: '1px solid #ccc',
-            borderRadius: '6px',
-            padding: '12px',
-            backgroundColor: '#f9f9f9',
-            maxWidth: '600px',
-          }}
-        >
-          <pre
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      {items.map((item) => {
+        // We get the download URL for any non-text item
+        const downloadUrl = getItemDownloadUrl(item.id);
+
+        return (
+          <div
+            key={item.id}
             style={{
-              fontFamily: 'monospace',
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
-              margin: '0 0 8px 0',
+              border: '1px solid #ccc',
+              borderRadius: '8px',
+              padding: '16px',
+              backgroundColor: '#f9f9f9',
+              maxWidth: '600px',
             }}
           >
-            {item.content}
-          </pre>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <small style={{ color: '#888' }}>
-              {new Date(item.uploaded_at).toLocaleTimeString()}
-            </small>
-            <button type="button" onClick={() => handleCopy(item.id, item.content)}>
-              {copiedId === item.id ? 'Copied!' : 'Copy'}
-            </button>
+            {/* TEXT TYPE */}
+            {item.type === 'text' && (
+              <>
+                <pre
+                  style={{
+                    fontFamily: 'monospace',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    margin: '0 0 12px 0',
+                  }}
+                >
+                  {item.content}
+                </pre>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <small style={{ color: '#888' }}>
+                    {new Date(item.uploaded_at).toLocaleTimeString()}
+                  </small>
+                  <button type="button" onClick={() => handleCopy(item.id, item.content)}>
+                    {copiedId === item.id ? 'Copied!' : 'Copy Text'}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* IMAGE TYPE */}
+            {item.type === 'image' && (
+              <>
+                <div style={{ marginBottom: '12px' }}>
+                  <a href={downloadUrl} target="_blank" rel="noopener noreferrer">
+                    <img
+                      src={downloadUrl}
+                      alt={item.content || 'Uploaded image'}
+                      style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '4px', border: '1px solid #ddd' }}
+                    />
+                  </a>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <small style={{ color: '#888' }}>
+                    {new Date(item.uploaded_at).toLocaleTimeString()} • {(item.size_bytes / 1024).toFixed(1)} KB
+                  </small>
+                  <a href={downloadUrl} download={item.content || 'download'}>
+                    <button type="button">Download Image</button>
+                  </a>
+                </div>
+              </>
+            )}
+
+            {/* VIDEO TYPE */}
+            {item.type === 'video' && (
+              <>
+                <div style={{ marginBottom: '12px' }}>
+                  <video
+                    controls
+                    src={downloadUrl}
+                    style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '4px', backgroundColor: '#000' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <small style={{ color: '#888' }}>
+                    {new Date(item.uploaded_at).toLocaleTimeString()} • {(item.size_bytes / (1024 * 1024)).toFixed(2)} MB
+                  </small>
+                  <a href={downloadUrl} download={item.content || 'download'}>
+                    <button type="button">Download Video</button>
+                  </a>
+                </div>
+              </>
+            )}
+
+            {/* GENERIC FILE TYPE */}
+            {item.type === 'file' && (
+              <>
+                <div style={{ marginBottom: '12px', fontWeight: 'bold', wordBreak: 'break-all' }}>
+                  📄 {item.content || 'Unknown File'}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <small style={{ color: '#888' }}>
+                    {new Date(item.uploaded_at).toLocaleTimeString()} • {(item.size_bytes / 1024).toFixed(1)} KB
+                  </small>
+                  <a href={downloadUrl} download={item.content || 'download'}>
+                    <button type="button">Download File</button>
+                  </a>
+                </div>
+              </>
+            )}
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
