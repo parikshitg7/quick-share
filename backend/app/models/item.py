@@ -11,6 +11,8 @@ class ItemResponse(BaseModel):
     room_id: str
     type: str
     content: Optional[str] = None
+    storage_ref: Optional[str] = None
+    size_bytes: Optional[int] = None
     uploaded_at: datetime
 
     class Config:
