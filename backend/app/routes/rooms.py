@@ -34,3 +34,10 @@ def get_room(room_id: str):
     if not result.data:
         raise HTTPException(status_code=404, detail="Room not found")
     return result.data[0]
+
+@router.get("/by-code/{short_code}", response_model=RoomResponse)
+def get_room_by_code(short_code: str):
+    result = supabase.table("rooms").select("*").eq("short_code", short_code).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Room not found")
+    return result.data[0]

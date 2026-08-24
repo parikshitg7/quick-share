@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { checkHealth, createRoom } from '../services/api';
 
 function HomePage() {
@@ -42,13 +42,30 @@ function HomePage() {
 
       {error && <p style={{ color: 'red' }}>{error}</p>}
 
-      <button
-        onClick={handleCreateRoom}
-        disabled={isCreating}
-        style={{ padding: '10px 20px', fontSize: '1rem', cursor: 'pointer' }}
-      >
-        {isCreating ? 'Creating Room...' : 'Create Room'}
-      </button>
+      <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', alignItems: 'center' }}>
+        <button
+          onClick={handleCreateRoom}
+          disabled={isCreating}
+          style={{ padding: '10px 20px', fontSize: '1rem', cursor: 'pointer' }}
+        >
+          {isCreating ? 'Creating Room...' : 'Create Room'}
+        </button>
+
+        <Link
+          to="/join"
+          style={{
+            padding: '10px 20px',
+            fontSize: '1rem',
+            textDecoration: 'none',
+            border: '1px solid #ccc',
+            borderRadius: '4px',
+            color: '#333',
+            backgroundColor: '#f5f5f5',
+          }}
+        >
+          Join a Room
+        </Link>
+      </div>
     </div>
   );
 }

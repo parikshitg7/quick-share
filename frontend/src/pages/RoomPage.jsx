@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { getRoom, getItems } from '../services/api';
 import TextDropForm from '../components/TextDropForm';
 import ItemList from '../components/ItemList';
+import RoomAccessPanel from '../components/RoomAccessPanel';
 
 function RoomPage() {
   const { roomId } = useParams();
@@ -54,7 +55,9 @@ function RoomPage() {
   return (
     <div style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
       <h1>Room: {room.id}</h1>
-      <p style={{ color: '#666' }}>Short Code: {room.short_code}</p>
+
+      {/* Room Access Panel with QR Code and Short Code */}
+      <RoomAccessPanel roomId={room.id} shortCode={room.short_code} />
 
       <TextDropForm roomId={roomId} onItemAdded={handleItemAdded} />
 

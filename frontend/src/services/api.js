@@ -32,6 +32,17 @@ export async function getRoom(roomId) {
   return await response.json();
 }
 
+export async function getRoomByCode(shortCode) {
+  const response = await fetch(`${API_BASE_URL}/rooms/by-code/${shortCode}`);
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error('Room not found. Please check the code.');
+    }
+    throw new Error(`Failed to lookup code: ${response.statusText}`);
+  }
+  return await response.json();
+}
+
 export async function createTextItem(roomId, content) {
   const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/items`, {
     method: 'POST',
