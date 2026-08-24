@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { getRoom, getItems } from '../services/api';
+import { subscribeToRoomItems, supabase } from '../services/realtime';
 import TextDropForm from '../components/TextDropForm';
 import FileDropZone from '../components/FileDropZone';
 import ItemList from '../components/ItemList';
@@ -30,6 +31,25 @@ function RoomPage() {
   useEffect(() => {
     fetchRoomData();
   }, [fetchRoomData]);
+
+  // Subscribe to real-time room item inserts
+  useEffect(() => {
+    if (!roomId) return;
+
+    const channel = subscribeToRoomItems(roomId, (newItem) => {
+      setItems((prevItems) => {
+        // Prevent duplicate items if already present in state
+        if (prevItems.some((item) => item.id === newItem.id)) {
+          return prevItems;
+        }
+        return [...prevItems, newItem];
+      });
+    });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [roomId]);
 
   const handleItemAdded = async () => {
     try {
