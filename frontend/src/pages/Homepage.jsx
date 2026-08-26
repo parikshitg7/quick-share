@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { checkHealth, createRoom } from '../services/api';
+import ExpirySelector from '../components/ExpirySelector';
 
 function HomePage() {
   const [backendStatus, setBackendStatus] = useState('Checking...');
+  const [expiryOption, setExpiryOption] = useState('24h');
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
@@ -25,7 +27,7 @@ function HomePage() {
     setIsCreating(true);
     setError(null);
     try {
-      const newRoom = await createRoom();
+      const newRoom = await createRoom(expiryOption);
       navigate(`/room/${newRoom.id}`);
     } catch (err) {
       console.error('Failed to create room:', err);
@@ -36,11 +38,18 @@ function HomePage() {
   };
 
   return (
-    <div style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
+    <div style={{ padding: '2rem', fontFamily: 'sans-serif', maxWidth: '600px' }}>
       <h1>Quick Share — Home</h1>
       <p>Backend: {backendStatus}</p>
 
       {error && <p style={{ color: 'red' }}>{error}</p>}
+
+      {/* Expiry Option Selector */}
+      <ExpirySelector
+        value={expiryOption}
+        onChange={setExpiryOption}
+        disabled={isCreating}
+      />
 
       <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', alignItems: 'center' }}>
         <button

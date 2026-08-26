@@ -2,10 +2,11 @@ from datetime import datetime, timezone
 from app.database import supabase
 from app.services.storage import delete_file_object
 
-def check_and_enforce_expiry(room: dict) -> str:
+def check_and_enforce_expiry(room: dict, is_lookup: bool = False) -> str:
     """
-    Checks whether a room has expired by time or by burn-after-view rules.
+    Checks whether a room has expired by time or by sealed burn-after-view rules.
     If expired, permanently purges associated R2 files and DB rows.
+    If is_lookup is True, it will check expiry but won't trigger the burn-on-view state.
     Returns: 'ok' or 'expired'.
     """
     now = datetime.now(timezone.utc)
@@ -20,7 +21,13 @@ def check_and_enforce_expiry(room: dict) -> str:
         expires_at = now
 
     is_time_expired = expires_at < now
-    is_burn_expired = room.get("burn_after_view") and room.get("viewed")
+    
+    # Burn-after-view expiry only applies if the room has been sealed
+    is_burn_expired = (
+        room.get("burn_after_view") 
+        and room.get("sealed") 
+        and room.get("viewed")
+    )
 
     if is_time_expired or is_burn_expired:
         # 1. Fetch and delete all R2 objects attached to items in this room
@@ -38,9 +45,11 @@ def check_and_enforce_expiry(room: dict) -> str:
         supabase.table("rooms").delete().eq("id", room["id"]).execute()
         return "expired"
 
-    # Handle first view for burn-after-view room
-    if room.get("burn_after_view") and not room.get("viewed"):
-        supabase.table("rooms").update({"viewed": True}).eq("id", room["id"]).execute()
+    # Recipient's first view of a sealed burn-after-view room
+    if room.get("burn_after_view") and room.get("sealed") and not room.get("viewed"):
+        # Only trigger the burn if this is NOT just a short code lookup
+        if not is_lookup:
+            supabase.table("rooms").update({"viewed": True}).eq("id", room["id"]).execute()
         return "ok"
 
     return "ok"

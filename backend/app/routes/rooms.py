@@ -36,7 +36,8 @@ def create_room(room_in: RoomCreate = RoomCreate()):
         "created_at": now.isoformat(),
         "expires_at": expires_at.isoformat(),
         "burn_after_view": burn_after_view,
-        "viewed": False
+        "viewed": False,
+        "sealed": False
     }
 
     result = supabase.table("rooms").insert(room_data).execute()
@@ -52,7 +53,8 @@ def get_room(room_id: str):
         raise HTTPException(status_code=404, detail="Room not found")
 
     room = result.data[0]
-    status = check_and_enforce_expiry(room)
+    # Standard load triggers the burn wire
+    status = check_and_enforce_expiry(room, is_lookup=False)
     if status == "expired":
         raise HTTPException(status_code=410, detail="This room has expired.")
 
@@ -65,8 +67,25 @@ def get_room_by_code(short_code: str):
         raise HTTPException(status_code=404, detail="Room not found")
 
     room = result.data[0]
-    status = check_and_enforce_expiry(room)
+    # Lookup ONLY checks expiry, does not trigger burn wire
+    status = check_and_enforce_expiry(room, is_lookup=True)
     if status == "expired":
         raise HTTPException(status_code=410, detail="This room has expired.")
 
     return room
+
+@router.post("/{room_id}/seal", response_model=RoomResponse)
+def seal_room(room_id: str):
+    result = supabase.table("rooms").select("*").eq("id", room_id).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Room not found")
+    
+    room = result.data[0]
+    if not room.get("burn_after_view"):
+        raise HTTPException(status_code=400, detail="Only burn-after-view rooms require sealing.")
+
+    update_result = supabase.table("rooms").update({"sealed": True}).eq("id", room_id).execute()
+    if not update_result.data:
+        raise HTTPException(status_code=500, detail="Failed to seal room")
+
+    return update_result.data[0]

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { getItemDownloadUrl } from '../services/api';
+import { getItemDownloadUrl, deleteItem } from '../services/api';
 
-function ItemList({ items }) {
+function ItemList({ items, onItemDeleted }) {
   const [copiedId, setCopiedId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
   const handleCopy = async (id, content) => {
     try {
@@ -14,6 +15,21 @@ function ItemList({ items }) {
     }
   };
 
+  const handleDelete = async (id) => {
+    setDeletingId(id);
+    try {
+      await deleteItem(id);
+      if (onItemDeleted) {
+        onItemDeleted();
+      }
+    } catch (err) {
+      console.error('Failed to delete item:', err);
+      alert('Failed to delete item. Please try again.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   if (!items || items.length === 0) {
     return <p style={{ color: '#666' }}>No items in this room yet.</p>;
   }
@@ -21,7 +37,6 @@ function ItemList({ items }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       {items.map((item) => {
-        // We get the download URL for any non-text item
         const downloadUrl = getItemDownloadUrl(item.id);
 
         return (
@@ -52,9 +67,19 @@ function ItemList({ items }) {
                   <small style={{ color: '#888' }}>
                     {new Date(item.uploaded_at).toLocaleTimeString()}
                   </small>
-                  <button type="button" onClick={() => handleCopy(item.id, item.content)}>
-                    {copiedId === item.id ? 'Copied!' : 'Copy Text'}
-                  </button>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button type="button" onClick={() => handleCopy(item.id, item.content)}>
+                      {copiedId === item.id ? 'Copied!' : 'Copy Text'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(item.id)}
+                      disabled={deletingId === item.id}
+                      style={{ color: '#dc3545', cursor: 'pointer' }}
+                    >
+                      {deletingId === item.id ? 'Deleting...' : 'Delete'}
+                    </button>
+                  </div>
                 </div>
               </>
             )}
@@ -75,9 +100,19 @@ function ItemList({ items }) {
                   <small style={{ color: '#888' }}>
                     {new Date(item.uploaded_at).toLocaleTimeString()} • {(item.size_bytes / 1024).toFixed(1)} KB
                   </small>
-                  <a href={downloadUrl} download={item.content || 'download'}>
-                    <button type="button">Download Image</button>
-                  </a>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <a href={downloadUrl} download={item.content || 'download'}>
+                      <button type="button">Download Image</button>
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(item.id)}
+                      disabled={deletingId === item.id}
+                      style={{ color: '#dc3545', cursor: 'pointer' }}
+                    >
+                      {deletingId === item.id ? 'Deleting...' : 'Delete'}
+                    </button>
+                  </div>
                 </div>
               </>
             )}
@@ -96,9 +131,19 @@ function ItemList({ items }) {
                   <small style={{ color: '#888' }}>
                     {new Date(item.uploaded_at).toLocaleTimeString()} • {(item.size_bytes / (1024 * 1024)).toFixed(2)} MB
                   </small>
-                  <a href={downloadUrl} download={item.content || 'download'}>
-                    <button type="button">Download Video</button>
-                  </a>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <a href={downloadUrl} download={item.content || 'download'}>
+                      <button type="button">Download Video</button>
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(item.id)}
+                      disabled={deletingId === item.id}
+                      style={{ color: '#dc3545', cursor: 'pointer' }}
+                    >
+                      {deletingId === item.id ? 'Deleting...' : 'Delete'}
+                    </button>
+                  </div>
                 </div>
               </>
             )}
@@ -113,9 +158,19 @@ function ItemList({ items }) {
                   <small style={{ color: '#888' }}>
                     {new Date(item.uploaded_at).toLocaleTimeString()} • {(item.size_bytes / 1024).toFixed(1)} KB
                   </small>
-                  <a href={downloadUrl} download={item.content || 'download'}>
-                    <button type="button">Download File</button>
-                  </a>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <a href={downloadUrl} download={item.content || 'download'}>
+                      <button type="button">Download File</button>
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(item.id)}
+                      disabled={deletingId === item.id}
+                      style={{ color: '#dc3545', cursor: 'pointer' }}
+                    >
+                      {deletingId === item.id ? 'Deleting...' : 'Delete'}
+                    </button>
+                  </div>
                 </div>
               </>
             )}

@@ -13,13 +13,15 @@ export async function checkHealth() {
   }
 }
 
-export async function createRoom() {
+export async function createRoom(expiryOption = '24h') {
   const response = await fetch(`${API_BASE_URL}/rooms`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ expiry_option: expiryOption }),
   });
   if (!response.ok) {
-    throw new Error(`Failed to create room: ${response.statusText}`);
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Failed to create room: ${response.statusText}`);
   }
   return await response.json();
 }
@@ -27,7 +29,10 @@ export async function createRoom() {
 export async function getRoom(roomId) {
   const response = await fetch(`${API_BASE_URL}/rooms/${roomId}`);
   if (!response.ok) {
-    throw new Error(`Failed to fetch room: ${response.statusText}`);
+    const errorData = await response.json().catch(() => ({}));
+    const err = new Error(errorData.detail || `Failed to fetch room: ${response.statusText}`);
+    err.status = response.status;
+    throw err;
   }
   return await response.json();
 }
@@ -35,10 +40,24 @@ export async function getRoom(roomId) {
 export async function getRoomByCode(shortCode) {
   const response = await fetch(`${API_BASE_URL}/rooms/by-code/${shortCode}`);
   if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
     if (response.status === 404) {
       throw new Error('Room not found. Please check the code.');
     }
-    throw new Error(`Failed to lookup code: ${response.statusText}`);
+    const err = new Error(errorData.detail || `Failed to lookup code: ${response.statusText}`);
+    err.status = response.status;
+    throw err;
+  }
+  return await response.json();
+}
+
+export async function sealRoom(roomId) {
+  const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/seal`, {
+    method: 'POST',
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Failed to seal room: ${response.statusText}`);
   }
   return await response.json();
 }
@@ -53,7 +72,8 @@ export async function createTextItem(roomId, content) {
     body: formData,
   });
   if (!response.ok) {
-    throw new Error(`Failed to create item: ${response.statusText}`);
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Failed to create item: ${response.statusText}`);
   }
   return await response.json();
 }
@@ -61,7 +81,6 @@ export async function createTextItem(roomId, content) {
 export async function uploadFileItem(roomId, file) {
   const formData = new FormData();
   
-  // Infer type from MIME type
   let type = 'file';
   if (file.type.startsWith('image/')) {
     type = 'image';
@@ -87,11 +106,23 @@ export async function uploadFileItem(roomId, file) {
 export async function getItems(roomId) {
   const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/items`);
   if (!response.ok) {
-    throw new Error(`Failed to fetch items: ${response.statusText}`);
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Failed to fetch items: ${response.statusText}`);
   }
   return await response.json();
 }
 
 export function getItemDownloadUrl(itemId) {
   return `${API_BASE_URL}/items/${itemId}/download`;
+}
+
+export async function deleteItem(itemId) {
+  const response = await fetch(`${API_BASE_URL}/items/${itemId}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Failed to delete item: ${response.statusText}`);
+  }
+  return await response.json();
 }

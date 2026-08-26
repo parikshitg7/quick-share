@@ -7,7 +7,7 @@ from nanoid import generate
 
 from app.database import supabase
 from app.models.item import TextItemCreate, ItemResponse
-from app.services.storage import upload_file_bytes, get_file_stream
+from app.services.storage import upload_file_bytes, get_file_stream, delete_file_object
 
 router = APIRouter(tags=["items"])
 
@@ -18,10 +18,19 @@ async def create_item(
     content: Optional[str] = Form(None),
     file: Optional[UploadFile] = File(None)
 ):
-    # Verify the room exists
-    room_check = supabase.table("rooms").select("id").eq("id", room_id).execute()
+    # 1. Verify the room exists
+    room_check = supabase.table("rooms").select("*").eq("id", room_id).execute()
     if not room_check.data:
         raise HTTPException(status_code=404, detail="Room not found")
+
+    room = room_check.data[0]
+
+    # 2. Reject uploads if a burn-after-view room is already sealed
+    if room.get("burn_after_view") and room.get("sealed"):
+        raise HTTPException(
+            status_code=403, 
+            detail="This room is sealed and no longer accepts uploads."
+        )
 
     item_id = generate(size=12)
     now = datetime.now(timezone.utc)
@@ -84,7 +93,6 @@ def list_items(room_id: str):
 
 @router.get("/items/{item_id}/download")
 def download_item(item_id: str):
-    # Fetch item metadata
     result = supabase.table("items").select("*").eq("id", item_id).execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Item not found")
@@ -105,3 +113,23 @@ def download_item(item_id: str):
         media_type=content_type,
         headers={"Content-Disposition": f'attachment; filename="{filename}"'}
     )
+
+@router.delete("/items/{item_id}")
+def delete_item(item_id: str):
+    result = supabase.table("items").select("*").eq("id", item_id).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    item = result.data[0]
+    storage_ref = item.get("storage_ref")
+
+    # If it is a file/media item, delete the object from R2 storage
+    if storage_ref:
+        try:
+            delete_file_object(storage_ref)
+        except Exception as e:
+            print(f"Error removing R2 file {storage_ref}: {e}")
+
+    # Delete item row from Supabase
+    supabase.table("items").delete().eq("id", item_id).execute()
+    return {"status": "deleted", "item_id": item_id}
