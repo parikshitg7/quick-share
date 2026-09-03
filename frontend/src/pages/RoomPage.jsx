@@ -170,7 +170,13 @@ function RoomPage() {
       )}
 
       <h2>Shared Items</h2>
-      <ItemList items={items} onItemDeleted={handleRefreshItems} />
+      <ItemList
+        items={items}
+        onItemDeleted={handleRefreshItems}
+        onItemRemoved={(removedId) => {
+          setItems((prevItems) => prevItems.filter((item) => item.id !== removedId));
+        }}
+      />
     </div>
   );
 }

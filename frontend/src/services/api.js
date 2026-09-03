@@ -62,10 +62,13 @@ export async function sealRoom(roomId) {
   return await response.json();
 }
 
-export async function createTextItem(roomId, content) {
+export async function createTextItem(roomId, content, burnAfterRead = false) {
   const formData = new FormData();
   formData.append('type', 'text');
   formData.append('content', content);
+  if (burnAfterRead) {
+    formData.append('burn_after_read', 'true');
+  }
 
   const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/items`, {
     method: 'POST',
@@ -78,9 +81,12 @@ export async function createTextItem(roomId, content) {
   return await response.json();
 }
 
-export async function uploadFileItem(roomId, file) {
+// Alias addTextItem to createTextItem for backward compatibility
+export const addTextItem = createTextItem;
+
+export async function uploadFileItem(roomId, file, burnAfterRead = false) {
   const formData = new FormData();
-  
+
   let type = 'file';
   if (file.type.startsWith('image/')) {
     type = 'image';
@@ -90,6 +96,9 @@ export async function uploadFileItem(roomId, file) {
 
   formData.append('type', type);
   formData.append('file', file);
+  if (burnAfterRead) {
+    formData.append('burn_after_read', 'true');
+  }
 
   const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/items`, {
     method: 'POST',
@@ -114,6 +123,17 @@ export async function getItems(roomId) {
 
 export function getItemDownloadUrl(itemId) {
   return `${API_BASE_URL}/items/${itemId}/download`;
+}
+
+export async function markItemViewed(itemId) {
+  const response = await fetch(`${API_BASE_URL}/items/${itemId}/mark-viewed`, {
+    method: 'POST',
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Failed to mark item viewed: ${response.statusText}`);
+  }
+  return await response.json();
 }
 
 export async function deleteItem(itemId) {

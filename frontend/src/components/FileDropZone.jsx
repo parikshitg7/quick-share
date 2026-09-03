@@ -6,6 +6,7 @@ function FileDropZone({ roomId, onItemAdded }) {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState(null);
   const [error, setError] = useState(null);
+  const [burnAfterRead, setBurnAfterRead] = useState(false);
   const fileInputRef = useRef(null);
 
   const handleUpload = async (file) => {
@@ -16,7 +17,7 @@ function FileDropZone({ roomId, onItemAdded }) {
     setError(null);
 
     try {
-      await uploadFileItem(roomId, file);
+      await uploadFileItem(roomId, file, burnAfterRead);
       setUploadStatus(`Successfully uploaded ${file.name}!`);
       if (onItemAdded) {
         onItemAdded();
@@ -79,7 +80,7 @@ function FileDropZone({ roomId, onItemAdded }) {
     return () => {
       window.removeEventListener('paste', handlePaste);
     };
-  }, [roomId, isUploading]);
+  }, [roomId, isUploading, burnAfterRead]);
 
   return (
     <div
@@ -110,18 +111,30 @@ function FileDropZone({ roomId, onItemAdded }) {
         style={{ display: 'none' }}
       />
 
-      <button
-        type="button"
-        onClick={() => fileInputRef.current?.click()}
-        disabled={isUploading}
-        style={{
-          padding: '8px 16px',
-          fontSize: '0.95rem',
-          cursor: isUploading ? 'not-allowed' : 'pointer',
-        }}
-      >
-        {isUploading ? 'Uploading...' : 'Choose File'}
-      </button>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '1rem', marginBottom: '12px' }}>
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isUploading}
+          style={{
+            padding: '8px 16px',
+            fontSize: '0.95rem',
+            cursor: isUploading ? 'not-allowed' : 'pointer',
+          }}
+        >
+          {isUploading ? 'Uploading...' : 'Choose File'}
+        </button>
+
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', fontSize: '0.9rem', color: '#d9534f' }}>
+          <input
+            type="checkbox"
+            checked={burnAfterRead}
+            onChange={(e) => setBurnAfterRead(e.target.checked)}
+            disabled={isUploading}
+          />
+          🔥 Burn after read
+        </label>
+      </div>
 
       {uploadStatus && (
         <p style={{ color: 'green', marginTop: '12px', marginBottom: 0, fontWeight: 'bold' }}>

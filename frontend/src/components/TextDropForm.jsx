@@ -1,51 +1,59 @@
 import React, { useState } from 'react';
-import { createTextItem } from '../services/api';
+import { addTextItem } from '../services/api';
 
 function TextDropForm({ roomId, onItemAdded }) {
   const [content, setContent] = useState('');
+  const [burnAfterRead, setBurnAfterRead] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!content.trim() || isSubmitting) return;
+    if (!content.trim()) return;
 
     setIsSubmitting(true);
-    setError(null);
-
     try {
-      await createTextItem(roomId, content.trim());
+      await addTextItem(roomId, content, burnAfterRead);
       setContent('');
-      if (onItemAdded) {
-        onItemAdded();
-      }
+      setBurnAfterRead(false);
+      if (onItemAdded) onItemAdded();
     } catch (err) {
-      console.error('Failed to post text item:', err);
-      setError('Failed to share text. Please try again.');
+      console.error('Error submitting text item:', err);
+      alert('Failed to send text.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div style={{ marginBottom: '2rem' }}>
-      <form onSubmit={handleSubmit}>
-        <div>
-          <textarea
-            rows="4"
-            style={{ width: '100%', maxWidth: '600px', padding: '8px', boxSizing: 'border-box' }}
-            placeholder="Type or paste text to share..."
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            disabled={isSubmitting}
-          />
-        </div>
-        {error && <p style={{ color: 'red' }}>{error}</p>}
-        <button type="submit" disabled={isSubmitting || !content.trim()} style={{ marginTop: '8px' }}>
-          {isSubmitting ? 'Sharing...' : 'Share Text'}
-        </button>
-      </form>
-    </div>
+    <form onSubmit={handleSubmit} style={{ marginTop: '1rem', marginBottom: '1.5rem' }}>
+      <textarea
+        value={content}
+        onChange={(e) => setContent(e.target.value)}
+        placeholder="Paste or type text here..."
+        rows={4}
+        style={{ width: '100%', maxWidth: '600px', padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }}
+        disabled={isSubmitting}
+      />
+      <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <input
+          type="checkbox"
+          id="text-burn-after-read"
+          checked={burnAfterRead}
+          onChange={(e) => setBurnAfterRead(e.target.checked)}
+          disabled={isSubmitting}
+        />
+        <label htmlFor="text-burn-after-read" style={{ fontSize: '0.9rem', color: '#555', cursor: 'pointer' }}>
+          🔥 Delete after viewing (Burn-after-read)
+        </label>
+      </div>
+      <button
+        type="submit"
+        disabled={isSubmitting || !content.trim()}
+        style={{ marginTop: '8px', padding: '8px 16px', cursor: 'pointer' }}
+      >
+        {isSubmitting ? 'Sharing...' : 'Share Text'}
+      </button>
+    </form>
   );
 }
 
