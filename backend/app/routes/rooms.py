@@ -1,13 +1,17 @@
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, HTTPException, Header, Request
 from typing import Optional
 from datetime import datetime, timedelta, timezone
 from nanoid import generate
+
 from app.database import supabase
 from app.models.room import RoomCreate, RoomResponse
 from app.services.shortcode import generate_short_code
 from app.services.expiry import check_and_enforce_expiry
 from app.services.security import hash_password, verify_password
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
+limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/rooms", tags=["rooms"])
 
 
@@ -21,7 +25,8 @@ def verify_room_access(room: dict, x_room_password: Optional[str]):
 
 
 @router.post("", response_model=RoomResponse)
-def create_room(room_in: RoomCreate = RoomCreate()):
+@limiter.limit("20/hour")
+def create_room(request: Request, room_in: RoomCreate = RoomCreate()):
     room_id = generate(size=12)
     short_code = generate_short_code()
     now = datetime.now(timezone.utc)
@@ -84,7 +89,10 @@ def get_room(
 
 
 @router.get("/by-code/{short_code}", response_model=RoomResponse)
-def get_room_by_code(short_code: str):
+def get_room_by_code(
+    short_code: str,
+    x_room_password: Optional[str] = Header(None, alias="X-Room-Password"),
+):
     result = supabase.table("rooms").select("*").eq("short_code", short_code).execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Room not found")
@@ -93,6 +101,8 @@ def get_room_by_code(short_code: str):
     status = check_and_enforce_expiry(room)
     if status == "expired":
         raise HTTPException(status_code=410, detail="This room has expired.")
+
+    verify_room_access(room, x_room_password)
 
     return room
 

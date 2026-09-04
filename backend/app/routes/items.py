@@ -1,7 +1,7 @@
 import io
 from typing import List, Optional
 from datetime import datetime, timezone
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Header
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Header, Request
 from fastapi.responses import StreamingResponse
 from nanoid import generate
 
@@ -9,12 +9,17 @@ from app.database import supabase
 from app.models.item import ItemResponse
 from app.services.storage import upload_file_bytes, get_file_stream, delete_file_object
 from app.routes.rooms import verify_room_access
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
+limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(tags=["items"])
 
 
 @router.post("/rooms/{room_id}/items", response_model=ItemResponse)
+@limiter.limit("100/hour")
 async def create_item(
+    request: Request,
     room_id: str,
     type: str = Form(...),
     content: Optional[str] = Form(None),
@@ -46,6 +51,20 @@ async def create_item(
         
         file_bytes = await file.read()
         size_bytes = len(file_bytes)
+
+        # 1. Individual file size limit (100 MB = 100 * 1024 * 1024 bytes)
+        MAX_FILE_SIZE = 100 * 1024 * 1024
+        if size_bytes > MAX_FILE_SIZE:
+            raise HTTPException(status_code=413, detail="File exceeds the 100MB limit.")
+
+        # 2. Total room storage limit (500 MB = 500 * 1024 * 1024 bytes)
+        MAX_ROOM_STORAGE = 500 * 1024 * 1024
+        existing_items = supabase.table("items").select("size_bytes").eq("room_id", room_id).execute()
+        current_total_storage = sum(item.get("size_bytes") or 0 for item in (existing_items.data or []))
+
+        if current_total_storage + size_bytes > MAX_ROOM_STORAGE:
+            raise HTTPException(status_code=413, detail="Room storage limit (500MB) reached.")
+
         storage_ref = f"{room_id}/{item_id}_{file.filename}"
         
         upload_file_bytes(

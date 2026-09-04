@@ -6,12 +6,15 @@ function TextDropForm({ roomId, onItemAdded }) {
   const [content, setContent] = useState('');
   const [burnAfterRead, setBurnAfterRead] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!content.trim()) return;
 
     setIsSubmitting(true);
+    setError(null);
+
     try {
       let payloadContent = content.trim();
       const password = getRoomPassword();
@@ -29,7 +32,11 @@ function TextDropForm({ roomId, onItemAdded }) {
       if (onItemAdded) onItemAdded();
     } catch (err) {
       console.error('Error submitting text item:', err);
-      alert('Failed to send text.');
+      if (err.status === 429) {
+        setError('Rate limit exceeded. Too many requests. Please try again later.');
+      } else {
+        setError(err.message || 'Failed to send text. Please try again.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -39,12 +46,16 @@ function TextDropForm({ roomId, onItemAdded }) {
     <form onSubmit={handleSubmit} style={{ marginTop: '1rem', marginBottom: '1.5rem' }}>
       <textarea
         value={content}
-        onChange={(e) => setContent(e.target.value)}
+        onChange={(e) => {
+          setContent(e.target.value);
+          if (error) setError(null);
+        }}
         placeholder="Paste or type text here..."
         rows={4}
         style={{ width: '100%', maxWidth: '600px', padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }}
         disabled={isSubmitting}
       />
+      
       <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
         <input
           type="checkbox"
@@ -57,6 +68,7 @@ function TextDropForm({ roomId, onItemAdded }) {
           🔥 Delete after viewing (Burn-after-read)
         </label>
       </div>
+
       <button
         type="submit"
         disabled={isSubmitting || !content.trim()}
@@ -64,6 +76,12 @@ function TextDropForm({ roomId, onItemAdded }) {
       >
         {isSubmitting ? 'Sharing...' : 'Share Text'}
       </button>
+
+      {error && (
+        <p style={{ color: 'red', marginTop: '8px', marginBottom: 0, fontSize: '0.9rem' }}>
+          {error}
+        </p>
+      )}
     </form>
   );
 }

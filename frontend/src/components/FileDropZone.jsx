@@ -13,6 +13,13 @@ function FileDropZone({ roomId, onItemAdded }) {
   const handleUpload = async (file) => {
     if (!file || isUploading) return;
 
+    // Client-side quick check (100MB)
+    const MAX_FILE_SIZE = 100 * 1024 * 1024;
+    if (file.size > MAX_FILE_SIZE) {
+      setError('File exceeds the 100MB limit.');
+      return;
+    }
+
     setIsUploading(true);
     setUploadStatus(`Uploading ${file.name}...`);
     setError(null);
@@ -44,7 +51,13 @@ function FileDropZone({ roomId, onItemAdded }) {
       setTimeout(() => setUploadStatus(null), 3000);
     } catch (err) {
       console.error('Upload failed:', err);
-      setError(err.message || 'Upload failed. Please try again.');
+      if (err.status === 413) {
+        setError(err.message || 'File or room size limit exceeded.');
+      } else if (err.status === 429) {
+        setError('Upload rate limit reached. Please wait a bit before uploading again.');
+      } else {
+        setError(err.message || 'Upload failed. Please try again.');
+      }
       setUploadStatus(null);
     } finally {
       setIsUploading(false);

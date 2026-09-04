@@ -4,3 +4,7 @@ __pycache__/
 venv/
 dist/
 .DS_Store
+# Ignore local test files
+*.bin
+dummy_*.bin
+test*.bin

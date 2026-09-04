@@ -7,6 +7,7 @@ import FileDropZone from '../components/FileDropZone';
 import ItemList from '../components/ItemList';
 import RoomAccessPanel from '../components/RoomAccessPanel';
 import PasswordGate from '../components/PasswordGate';
+import RateLimitBanner from '../components/RateLimitBanner';
 
 function RoomPage() {
   const { roomId } = useParams();
@@ -141,6 +142,9 @@ function RoomPage() {
   return (
     <div style={{ padding: '2rem', fontFamily: 'sans-serif', maxWidth: '700px' }}>
       <h1>Room: {room.id}</h1>
+
+      {/* Upload Limits Info Banner */}
+      <RateLimitBanner />
 
       {/* Burn-After-View Banner & Seal Actions */}
       {isBurnRoom && !isSealed && (
