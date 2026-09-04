@@ -165,6 +165,19 @@ export function getItemDownloadUrl(itemId) {
   return `${API_BASE_URL}/items/${itemId}/download`;
 }
 
+export async function downloadItemBlob(itemId) {
+  const response = await fetch(`${API_BASE_URL}/items/${itemId}/download`, {
+    headers: getHeaders(),
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const err = new Error(errorData.detail || `Failed to download file: ${response.statusText}`);
+    err.status = response.status;
+    throw err;
+  }
+  return await response.arrayBuffer();
+}
+
 export async function markItemViewed(itemId) {
   const response = await fetch(`${API_BASE_URL}/items/${itemId}/mark-viewed`, {
     method: 'POST',

@@ -182,7 +182,11 @@ function RoomPage() {
       )}
 
       <h2>Shared Items</h2>
-      <ItemList items={items} onItemDeleted={handleRefreshItems} />
+      <ItemList
+        items={items}
+        onItemDeleted={handleRefreshItems}
+        encryptionSalt={room?.encryption_salt}
+      />
     </div>
   );
 }

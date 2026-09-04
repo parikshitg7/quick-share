@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { uploadFileItem, getRoom, getRoomPassword } from '../services/api';
-import { deriveKey, encryptFile } from '../utils/crypto';
+import { encryptBuffer } from '../utils/crypto';
 
 function FileDropZone({ roomId, onItemAdded }) {
   const [isDragging, setIsDragging] = useState(false);
@@ -23,9 +23,16 @@ function FileDropZone({ roomId, onItemAdded }) {
 
       if (password) {
         const room = await getRoom(roomId);
-        if (room.encryption_salt) {
-          const key = await deriveKey(password, room.encryption_salt);
-          fileToUpload = await encryptFile(file, key);
+        if (room?.encryption_salt) {
+          const rawBuffer = await file.arrayBuffer();
+          const encryptedArrayBuffer = await encryptBuffer(
+            rawBuffer,
+            password,
+            room.encryption_salt
+          );
+          fileToUpload = new File([encryptedArrayBuffer], file.name, {
+            type: file.type || 'application/octet-stream',
+          });
         }
       }
 

@@ -1,125 +1,128 @@
-/**
- * Utility functions for zero-knowledge client-side encryption using Web Crypto API.
- * Uses PBKDF2 (SHA-256, 100k iterations) for key derivation and AES-GCM for encryption.
- */
-
-// Generates a random 16-byte hex salt for PBKDF2 key derivation
-export function generateSalt() {
-  const array = new Uint8Array(16);
-  window.crypto.getRandomValues(array);
-  return Array.from(array, (b) => b.toString(16).padStart(2, '0')).join('');
-}
-
-// Converts a hex string into a Uint8Array
 function hexToBytes(hex) {
   const bytes = new Uint8Array(hex.length / 2);
   for (let i = 0; i < hex.length; i += 2) {
-    bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16);
+    bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
   }
   return bytes;
 }
 
-// Derives an AES-GCM 256-bit CryptoKey from a password string and hex salt
+function bytesToHex(bytes) {
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+export function generateSalt() {
+  const array = new Uint8Array(16);
+  window.crypto.getRandomValues(array);
+  return bytesToHex(array);
+}
+
 export async function deriveKey(password, saltHex) {
   const encoder = new TextEncoder();
-  const passwordBytes = encoder.encode(password);
-  const saltBytes = hexToBytes(saltHex);
-
-  const baseKey = await window.crypto.subtle.importKey(
+  const salt = hexToBytes(saltHex);
+  const passwordKey = await window.crypto.subtle.importKey(
     'raw',
-    passwordBytes,
+    encoder.encode(password),
     { name: 'PBKDF2' },
     false,
     ['deriveKey']
   );
 
-  return await window.crypto.subtle.deriveKey(
+  return window.crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
-      salt: saltBytes,
+      salt: salt,
       iterations: 100000,
       hash: 'SHA-256',
     },
-    baseKey,
+    passwordKey,
     { name: 'AES-GCM', length: 256 },
     false,
     ['encrypt', 'decrypt']
   );
 }
 
-// Encrypts plaintext string; returns JSON string containing base64 ciphertext and hex IV
-export async function encryptText(text, key) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(text);
+export async function encryptText(text, password, salt) {
+  if (!text || !password || !salt) return text;
+  const key = await deriveKey(password, salt);
   const iv = window.crypto.getRandomValues(new Uint8Array(12));
+  const encodedText = new TextEncoder().encode(text);
 
-  const encryptedBuffer = await window.crypto.subtle.encrypt(
+  const ciphertext = await window.crypto.subtle.encrypt(
     { name: 'AES-GCM', iv },
     key,
-    data
+    encodedText
   );
 
-  const ciphertextArray = new Uint8Array(encryptedBuffer);
-  const base64Ciphertext = btoa(String.fromCharCode(...ciphertextArray));
-  const ivHex = Array.from(iv, (b) => b.toString(16).padStart(2, '0')).join('');
-
-  return JSON.stringify({
-    encrypted: true,
-    iv: ivHex,
-    ciphertext: base64Ciphertext,
-  });
+  const ivHex = bytesToHex(iv);
+  const ciphertextBase64 = btoa(
+    String.fromCharCode(...new Uint8Array(ciphertext))
+  );
+  return `${ivHex}:${ciphertextBase64}`;
 }
 
-// Decrypts JSON formatted encrypted text payload back to plaintext string
-export async function decryptText(encryptedPayloadString, key) {
-  const payload = JSON.parse(encryptedPayloadString);
-  const iv = hexToBytes(payload.iv);
+export async function decryptText(encryptedData, password, salt) {
+  if (!encryptedData || !password || !salt) return encryptedData;
 
-  const binaryString = atob(payload.ciphertext);
-  const ciphertextBytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    ciphertextBytes[i] = binaryString.charCodeAt(i);
+  try {
+    const [ivHex, ciphertextBase64] = encryptedData.split(':');
+    if (!ivHex || !ciphertextBase64) return encryptedData;
+
+    const iv = hexToBytes(ivHex);
+    const ciphertext = Uint8Array.from(atob(ciphertextBase64), (c) =>
+      c.charCodeAt(0)
+    );
+    const key = await deriveKey(password, salt);
+
+    const decrypted = await window.crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      ciphertext
+    );
+
+    return new TextDecoder().decode(decrypted);
+  } catch (err) {
+    console.error('Text decryption failed:', err);
+    throw err;
   }
-
-  const decryptedBuffer = await window.crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv },
-    key,
-    ciphertextBytes
-  );
-
-  const decoder = new TextDecoder();
-  return decoder.decode(decryptedBuffer);
 }
 
-// Encrypts a File or Blob; prepends the 12-byte IV to the encrypted bytes and returns a new File object
-export async function encryptFile(file, key) {
-  const fileBuffer = await file.arrayBuffer();
+export async function encryptBuffer(arrayBuffer, password, salt) {
+  if (!arrayBuffer || !password || !salt) return arrayBuffer;
+  const key = await deriveKey(password, salt);
   const iv = window.crypto.getRandomValues(new Uint8Array(12));
 
-  const encryptedBuffer = await window.crypto.subtle.encrypt(
+  const ciphertext = await window.crypto.subtle.encrypt(
     { name: 'AES-GCM', iv },
     key,
-    fileBuffer
+    arrayBuffer
   );
 
-  // Combine IV (12 bytes) + Encrypted ArrayBuffer
-  const combinedBuffer = new Uint8Array(iv.length + encryptedBuffer.byteLength);
-  combinedBuffer.set(iv, 0);
-  combinedBuffer.set(new Uint8Array(encryptedBuffer), iv.length);
-
-  const encryptedBlob = new Blob([combinedBuffer], { type: 'application/octet-stream' });
-  return new File([encryptedBlob], file.name, { type: 'application/octet-stream' });
+  const combined = new Uint8Array(iv.length + ciphertext.byteLength);
+  combined.set(iv, 0);
+  combined.set(new Uint8Array(ciphertext), iv.length);
+  return combined.buffer;
 }
 
-// Decrypts an ArrayBuffer/Blob containing prepended 12-byte IV + ciphertext back into an ArrayBuffer
-export async function decryptFile(combinedBuffer, key) {
-  const bytes = new Uint8Array(combinedBuffer);
-  const iv = bytes.slice(0, 12);
-  const ciphertext = bytes.slice(12);
+export async function decryptBuffer(encryptedBuffer, password, salt) {
+  if (!encryptedBuffer || !password || !salt) return encryptedBuffer;
 
-  return await window.crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv },
-    key,
-    ciphertext
-  );
+  try {
+    const data = new Uint8Array(encryptedBuffer);
+    const iv = data.slice(0, 12);
+    const ciphertext = data.slice(12);
+    const key = await deriveKey(password, salt);
+
+    const decrypted = await window.crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      ciphertext
+    );
+
+    return decrypted;
+  } catch (err) {
+    console.error('Buffer decryption failed:', err);
+    throw err;
+  }
 }
