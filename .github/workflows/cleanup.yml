@@ -1,0 +1,17 @@
+name: Hourly Cleanup Sweep
+
+on:
+  schedule:
+    # Runs at minute 0 of every hour
+    - cron: '0 * * * *'
+  workflow_dispatch: # Allows manual trigger from GitHub Actions UI for testing
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call Backend Cleanup Endpoint
+        run: |
+          curl -sS -X POST "${{ secrets.BACKEND_URL }}/cleanup" \
+            -H "X-Cleanup-Secret: ${{ secrets.CLEANUP_SECRET }}" \
+            -f
