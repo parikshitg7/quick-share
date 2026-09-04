@@ -6,6 +6,7 @@ import ExpirySelector from '../components/ExpirySelector';
 function HomePage() {
   const [backendStatus, setBackendStatus] = useState('Checking...');
   const [expiryOption, setExpiryOption] = useState('24h');
+  const [password, setPassword] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
@@ -27,7 +28,8 @@ function HomePage() {
     setIsCreating(true);
     setError(null);
     try {
-      const newRoom = await createRoom(expiryOption);
+      const roomPassword = password.trim() || null;
+      const newRoom = await createRoom(expiryOption, roomPassword);
       navigate(`/room/${newRoom.id}`);
     } catch (err) {
       console.error('Failed to create room:', err);
@@ -44,14 +46,34 @@ function HomePage() {
 
       {error && <p style={{ color: 'red' }}>{error}</p>}
 
-      {/* Expiry Option Selector */}
       <ExpirySelector
         value={expiryOption}
         onChange={setExpiryOption}
         disabled={isCreating}
       />
 
-      <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', alignItems: 'center' }}>
+      <div style={{ marginTop: '1.5rem', marginBottom: '1.5rem' }}>
+        <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.5rem' }}>
+          Room Password (Optional):
+        </label>
+        <input
+          type="password"
+          placeholder="Leave empty for public room"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          disabled={isCreating}
+          style={{
+            width: '100%',
+            padding: '8px 12px',
+            borderRadius: '4px',
+            border: '1px solid #ccc',
+            boxSizing: 'border-box',
+            fontSize: '1rem',
+          }}
+        />
+      </div>
+
+      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
         <button
           onClick={handleCreateRoom}
           disabled={isCreating}

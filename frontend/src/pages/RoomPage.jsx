@@ -6,6 +6,7 @@ import TextDropForm from '../components/TextDropForm';
 import FileDropZone from '../components/FileDropZone';
 import ItemList from '../components/ItemList';
 import RoomAccessPanel from '../components/RoomAccessPanel';
+import PasswordGate from '../components/PasswordGate';
 
 function RoomPage() {
   const { roomId } = useParams();
@@ -13,18 +14,24 @@ function RoomPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isExpired, setIsExpired] = useState(false);
+  const [isProtected, setIsProtected] = useState(false);
   const [isSealing, setIsSealing] = useState(false);
   const [error, setError] = useState(null);
 
   const fetchRoomData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
       const roomData = await getRoom(roomId);
       setRoom(roomData);
+      setIsProtected(false);
       const itemsData = await getItems(roomId);
       setItems(itemsData);
     } catch (err) {
       console.error('Failed to fetch room or items:', err);
-      if (err.status === 410 || err.message?.includes('expired')) {
+      if (err.status === 401 || err.message?.includes('Password required') || err.message?.includes('401')) {
+        setIsProtected(true);
+      } else if (err.status === 410 || err.message?.includes('expired')) {
         setIsExpired(true);
       } else {
         setError('Failed to load room. It may not exist or an error occurred.');
@@ -40,7 +47,7 @@ function RoomPage() {
 
   // Subscribe to real-time room item changes
   useEffect(() => {
-    if (!roomId || isExpired) return;
+    if (!roomId || isExpired || isProtected) return;
 
     const channel = subscribeToRoomItems(roomId, (newItem) => {
       setItems((prevItems) => {
@@ -54,7 +61,7 @@ function RoomPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [roomId, isExpired]);
+  }, [roomId, isExpired, isProtected]);
 
   const handleRefreshItems = async () => {
     try {
@@ -83,6 +90,11 @@ function RoomPage() {
 
   if (loading) {
     return <div style={{ padding: '2rem', fontFamily: 'sans-serif' }}>Loading room...</div>;
+  }
+
+  // Password Gate Interface
+  if (isProtected) {
+    return <PasswordGate roomId={roomId} onSuccess={fetchRoomData} />;
   }
 
   // Friendly Expired State Handling
@@ -170,13 +182,7 @@ function RoomPage() {
       )}
 
       <h2>Shared Items</h2>
-      <ItemList
-        items={items}
-        onItemDeleted={handleRefreshItems}
-        onItemRemoved={(removedId) => {
-          setItems((prevItems) => prevItems.filter((item) => item.id !== removedId));
-        }}
-      />
+      <ItemList items={items} onItemDeleted={handleRefreshItems} />
     </div>
   );
 }

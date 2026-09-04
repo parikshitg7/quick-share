@@ -1,15 +1,17 @@
 import io
 from typing import List, Optional
 from datetime import datetime, timezone
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Header
 from fastapi.responses import StreamingResponse
 from nanoid import generate
 
 from app.database import supabase
 from app.models.item import ItemResponse
 from app.services.storage import upload_file_bytes, get_file_stream, delete_file_object
+from app.routes.rooms import verify_room_access
 
 router = APIRouter(tags=["items"])
+
 
 @router.post("/rooms/{room_id}/items", response_model=ItemResponse)
 async def create_item(
@@ -17,16 +19,16 @@ async def create_item(
     type: str = Form(...),
     content: Optional[str] = Form(None),
     file: Optional[UploadFile] = File(None),
-    burn_after_read: bool = Form(False)
+    burn_after_read: bool = Form(False),
+    x_room_password: Optional[str] = Header(None, alias="X-Room-Password"),
 ):
-    # 1. Verify the room exists
     room_check = supabase.table("rooms").select("*").eq("id", room_id).execute()
     if not room_check.data:
         raise HTTPException(status_code=404, detail="Room not found")
 
     room = room_check.data[0]
+    verify_room_access(room, x_room_password)
 
-    # 2. Reject uploads if a burn-after-view room is already sealed
     if room.get("burn_after_view") and room.get("sealed"):
         raise HTTPException(
             status_code=403, 
@@ -79,10 +81,16 @@ async def create_item(
 
 
 @router.get("/rooms/{room_id}/items", response_model=List[ItemResponse])
-def list_items(room_id: str):
-    room_check = supabase.table("rooms").select("id").eq("id", room_id).execute()
+def list_items(
+    room_id: str,
+    x_room_password: Optional[str] = Header(None, alias="X-Room-Password"),
+):
+    room_check = supabase.table("rooms").select("*").eq("id", room_id).execute()
     if not room_check.data:
         raise HTTPException(status_code=404, detail="Room not found")
+
+    room = room_check.data[0]
+    verify_room_access(room, x_room_password)
 
     result = (
         supabase.table("items")
@@ -95,12 +103,21 @@ def list_items(room_id: str):
 
 
 @router.get("/items/{item_id}/download")
-def download_item(item_id: str):
+def download_item(
+    item_id: str,
+    x_room_password: Optional[str] = Header(None, alias="X-Room-Password"),
+):
     result = supabase.table("items").select("*").eq("id", item_id).execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Item not found")
 
     item = result.data[0]
+
+    room_check = supabase.table("rooms").select("*").eq("id", item["room_id"]).execute()
+    if not room_check.data:
+        raise HTTPException(status_code=404, detail="Room not found")
+    verify_room_access(room_check.data[0], x_room_password)
+
     if not item.get("storage_ref"):
         raise HTTPException(status_code=400, detail="Item has no storage reference")
 
@@ -110,7 +127,6 @@ def download_item(item_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch file from storage: {str(e)}")
 
-    # Delete if burn_after_read is true
     if item.get("burn_after_read"):
         storage_ref = item.get("storage_ref")
         if storage_ref:
@@ -130,12 +146,20 @@ def download_item(item_id: str):
 
 
 @router.post("/items/{item_id}/mark-viewed")
-def mark_item_viewed(item_id: str):
+def mark_item_viewed(
+    item_id: str,
+    x_room_password: Optional[str] = Header(None, alias="X-Room-Password"),
+):
     result = supabase.table("items").select("*").eq("id", item_id).execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Item not found")
 
     item = result.data[0]
+
+    room_check = supabase.table("rooms").select("*").eq("id", item["room_id"]).execute()
+    if not room_check.data:
+        raise HTTPException(status_code=404, detail="Room not found")
+    verify_room_access(room_check.data[0], x_room_password)
 
     if item.get("burn_after_read"):
         storage_ref = item.get("storage_ref")
@@ -153,12 +177,21 @@ def mark_item_viewed(item_id: str):
 
 
 @router.delete("/items/{item_id}")
-def delete_item(item_id: str):
+def delete_item(
+    item_id: str,
+    x_room_password: Optional[str] = Header(None, alias="X-Room-Password"),
+):
     result = supabase.table("items").select("*").eq("id", item_id).execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Item not found")
 
     item = result.data[0]
+
+    room_check = supabase.table("rooms").select("*").eq("id", item["room_id"]).execute()
+    if not room_check.data:
+        raise HTTPException(status_code=404, detail="Room not found")
+    verify_room_access(room_check.data[0], x_room_password)
+
     storage_ref = item.get("storage_ref")
 
     if storage_ref:
