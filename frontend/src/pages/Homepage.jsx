@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { checkHealth, createRoom } from '../services/api';
 import ExpirySelector from '../components/ExpirySelector';
+import { generateSalt } from '../utils/crypto';
 
 function HomePage() {
   const [backendStatus, setBackendStatus] = useState('Checking...');
@@ -29,7 +30,9 @@ function HomePage() {
     setError(null);
     try {
       const roomPassword = password.trim() || null;
-      const newRoom = await createRoom(expiryOption, roomPassword);
+      const encryptionSalt = roomPassword ? generateSalt() : null;
+
+      const newRoom = await createRoom(expiryOption, roomPassword, encryptionSalt);
       navigate(`/room/${newRoom.id}`);
     } catch (err) {
       console.error('Failed to create room:', err);

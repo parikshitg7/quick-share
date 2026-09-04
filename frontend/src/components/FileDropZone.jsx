@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { uploadFileItem } from '../services/api';
+import { uploadFileItem, getRoom, getRoomPassword } from '../services/api';
+import { deriveKey, encryptFile } from '../utils/crypto';
 
 function FileDropZone({ roomId, onItemAdded }) {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState(null);
-  const [error, setError] = useState(null);
   const [burnAfterRead, setBurnAfterRead] = useState(false);
+  const [error, setError] = useState(null);
   const fileInputRef = useRef(null);
 
   const handleUpload = async (file) => {
@@ -17,7 +18,18 @@ function FileDropZone({ roomId, onItemAdded }) {
     setError(null);
 
     try {
-      await uploadFileItem(roomId, file, burnAfterRead);
+      let fileToUpload = file;
+      const password = getRoomPassword();
+
+      if (password) {
+        const room = await getRoom(roomId);
+        if (room.encryption_salt) {
+          const key = await deriveKey(password, room.encryption_salt);
+          fileToUpload = await encryptFile(file, key);
+        }
+      }
+
+      await uploadFileItem(roomId, fileToUpload, burnAfterRead);
       setUploadStatus(`Successfully uploaded ${file.name}!`);
       if (onItemAdded) {
         onItemAdded();
@@ -83,35 +95,33 @@ function FileDropZone({ roomId, onItemAdded }) {
   }, [roomId, isUploading, burnAfterRead]);
 
   return (
-    <div
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-      style={{
-        border: isDragging ? '2px dashed #0066cc' : '2px dashed #bbb',
-        backgroundColor: isDragging ? '#eef6ff' : '#fafafa',
-        borderRadius: '8px',
-        padding: '24px',
-        textAlign: 'center',
-        marginBottom: '2rem',
-        maxWidth: '600px',
-        boxSizing: 'border-box',
-        transition: 'all 0.2s ease',
-      }}
-    >
-      <p style={{ margin: '0 0 12px 0', color: '#555' }}>
-        <strong>Drag & Drop</strong> files/images/videos here, or paste directly from clipboard
-      </p>
+    <div style={{ marginTop: '1rem', marginBottom: '1.5rem', maxWidth: '600px' }}>
+      <div
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        style={{
+          border: isDragging ? '2px dashed #0066cc' : '2px dashed #bbb',
+          backgroundColor: isDragging ? '#eef6ff' : '#fafafa',
+          borderRadius: '8px',
+          padding: '24px',
+          textAlign: 'center',
+          boxSizing: 'border-box',
+          transition: 'all 0.2s ease',
+        }}
+      >
+        <p style={{ margin: '0 0 12px 0', color: '#555' }}>
+          <strong>Drag & Drop</strong> files/images/videos here, or paste directly from clipboard
+        </p>
 
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileChange}
-        disabled={isUploading}
-        style={{ display: 'none' }}
-      />
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          disabled={isUploading}
+          style={{ display: 'none' }}
+        />
 
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '1rem', marginBottom: '12px' }}>
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
@@ -125,28 +135,31 @@ function FileDropZone({ roomId, onItemAdded }) {
           {isUploading ? 'Uploading...' : 'Choose File'}
         </button>
 
-        <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', fontSize: '0.9rem', color: '#d9534f' }}>
-          <input
-            type="checkbox"
-            checked={burnAfterRead}
-            onChange={(e) => setBurnAfterRead(e.target.checked)}
-            disabled={isUploading}
-          />
-          🔥 Burn after read
-        </label>
+        {uploadStatus && (
+          <p style={{ color: 'green', marginTop: '12px', marginBottom: 0, fontWeight: 'bold' }}>
+            {uploadStatus}
+          </p>
+        )}
+
+        {error && (
+          <p style={{ color: 'red', marginTop: '12px', marginBottom: 0 }}>
+            {error}
+          </p>
+        )}
       </div>
 
-      {uploadStatus && (
-        <p style={{ color: 'green', marginTop: '12px', marginBottom: 0, fontWeight: 'bold' }}>
-          {uploadStatus}
-        </p>
-      )}
-
-      {error && (
-        <p style={{ color: 'red', marginTop: '12px', marginBottom: 0 }}>
-          {error}
-        </p>
-      )}
+      <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <input
+          type="checkbox"
+          id="file-burn-after-read"
+          checked={burnAfterRead}
+          onChange={(e) => setBurnAfterRead(e.target.checked)}
+          disabled={isUploading}
+        />
+        <label htmlFor="file-burn-after-read" style={{ fontSize: '0.9rem', color: '#555', cursor: 'pointer' }}>
+          🔥 Delete after viewing/downloading (Burn-after-read)
+        </label>
+      </div>
     </div>
   );
 }

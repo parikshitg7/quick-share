@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { addTextItem } from '../services/api';
+import { createTextItem, getRoom, getRoomPassword } from '../services/api';
+import { deriveKey, encryptText } from '../utils/crypto';
 
 function TextDropForm({ roomId, onItemAdded }) {
   const [content, setContent] = useState('');
@@ -12,7 +13,18 @@ function TextDropForm({ roomId, onItemAdded }) {
 
     setIsSubmitting(true);
     try {
-      await addTextItem(roomId, content, burnAfterRead);
+      let payloadContent = content.trim();
+      const password = getRoomPassword();
+
+      if (password) {
+        const room = await getRoom(roomId);
+        if (room.encryption_salt) {
+          const key = await deriveKey(password, room.encryption_salt);
+          payloadContent = await encryptText(payloadContent, key);
+        }
+      }
+
+      await createTextItem(roomId, payloadContent, burnAfterRead);
       setContent('');
       setBurnAfterRead(false);
       if (onItemAdded) onItemAdded();
