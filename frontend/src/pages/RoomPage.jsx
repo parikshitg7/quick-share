@@ -41,6 +41,17 @@ function RoomPage() {
       setLoading(false);
     }
   }, [roomId]);
+  const handleUnlockSuccess = async (unlockedRoomData) => {
+    setRoom(unlockedRoomData);
+    setIsProtected(false);
+    try {
+      // Now that the room is unlocked, we just need to grab the files
+      const itemsData = await getItems(roomId);
+      setItems(itemsData);
+    } catch (err) {
+      console.error('Failed to fetch items:', err);
+    }
+  };
 
   useEffect(() => {
     fetchRoomData();
@@ -105,8 +116,9 @@ function RoomPage() {
   }
 
   // Password Gate Interface
+  // Password Gate Interface
   if (isProtected) {
-    return <PasswordGate roomId={roomId} onSuccess={fetchRoomData} />;
+    return <PasswordGate roomId={roomId} onSuccess={handleUnlockSuccess} />;
   }
 
   // Friendly Expired State Handling

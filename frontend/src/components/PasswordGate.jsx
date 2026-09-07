@@ -15,18 +15,14 @@ function PasswordGate({ roomId, onSuccess }) {
 
     try {
       setRoomPassword(password);
-      await getRoom(roomId);
+      // Fetch the room data ONCE
+      const roomData = await getRoom(roomId); 
       if (onSuccess) {
-        onSuccess();
+        onSuccess(roomData); // Pass the data back to RoomPage
       }
     } catch (err) {
       console.error('Password verification failed:', err);
-      // Check if the backend responded with a 410 Expired
-      if (err.response && err.response.status === 410) {
-        setError('This room has expired.');
-      } else {
-        setError('Incorrect password. Please try again.');
-      }
+      setError('Incorrect password. Please try again.');
       setSubmitting(false);
     }
   };
