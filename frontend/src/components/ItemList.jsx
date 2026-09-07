@@ -131,7 +131,9 @@ function ItemCard({ item, encryptionSalt, onItemDeleted, onItemRemoved }) {
       URL.revokeObjectURL(blobUrl);
 
       if (item.burn_after_read) {
-        await markItemViewed(item.id);
+        // We DO NOT call markItemViewed here. 
+        // The backend automatically deletes the file/row during downloadItemBlob.
+        // We only need to clear it from the local UI.
         notifyRemoved(item.id);
       }
     } catch (err) {

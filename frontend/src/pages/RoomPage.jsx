@@ -46,18 +46,29 @@ function RoomPage() {
     fetchRoomData();
   }, [fetchRoomData]);
 
-  // Subscribe to real-time room item changes
+  // Handle local item removal
+  const handleRemoveItemLocal = (removedId) => {
+    setItems((prevItems) => prevItems.filter((i) => i.id !== removedId));
+  };
+
+  // Subscribe to real-time room item changes (INSERT & DELETE)
   useEffect(() => {
     if (!roomId || isExpired || isProtected) return;
 
-    const channel = subscribeToRoomItems(roomId, (newItem) => {
-      setItems((prevItems) => {
-        if (prevItems.some((item) => item.id === newItem.id)) {
-          return prevItems;
-        }
-        return [...prevItems, newItem];
-      });
-    });
+    const channel = subscribeToRoomItems(
+      roomId,
+      (newItem) => {
+        setItems((prevItems) => {
+          if (prevItems.some((item) => item.id === newItem.id)) {
+            return prevItems;
+          }
+          return [...prevItems, newItem];
+        });
+      },
+      (deletedItemId) => {
+        handleRemoveItemLocal(deletedItemId);
+      }
+    );
 
     return () => {
       supabase.removeChannel(channel);
@@ -189,6 +200,7 @@ function RoomPage() {
       <ItemList
         items={items}
         onItemDeleted={handleRefreshItems}
+        onItemRemoved={handleRemoveItemLocal}
         encryptionSalt={room?.encryption_salt}
       />
     </div>

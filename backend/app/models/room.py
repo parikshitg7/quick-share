@@ -15,6 +15,7 @@ class RoomResponse(BaseModel):
     expires_at: datetime
     burn_after_view: bool = False
     viewed: bool = False
+    sealed: bool = False
     encrypted: bool = False
     encryption_salt: Optional[str] = None
 

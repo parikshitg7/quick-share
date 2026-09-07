@@ -21,7 +21,12 @@ function PasswordGate({ roomId, onSuccess }) {
       }
     } catch (err) {
       console.error('Password verification failed:', err);
-      setError('Incorrect password. Please try again.');
+      // Check if the backend responded with a 410 Expired
+      if (err.response && err.response.status === 410) {
+        setError('This room has expired.');
+      } else {
+        setError('Incorrect password. Please try again.');
+      }
       setSubmitting(false);
     }
   };
@@ -41,8 +46,15 @@ function PasswordGate({ roomId, onSuccess }) {
       }}
     >
       <h2 style={{ marginTop: 0, color: '#1e293b' }}>🔒 Protected Room</h2>
-      <p style={{ color: '#64748b', fontSize: '0.95rem', marginBottom: '1.5rem' }}>
-        This room is password-protected. Enter the password to view and share content.
+      <p
+        style={{
+          color: '#64748b',
+          fontSize: '0.95rem',
+          marginBottom: '1.5rem',
+        }}
+      >
+        This room is password-protected. Enter the password to view and share
+        content.
       </p>
 
       <form onSubmit={handleSubmit}>
@@ -66,7 +78,14 @@ function PasswordGate({ roomId, onSuccess }) {
         </div>
 
         {error && (
-          <p style={{ color: '#ef4444', fontSize: '0.875rem', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+          <p
+            style={{
+              color: '#ef4444',
+              fontSize: '0.875rem',
+              marginTop: '-0.5rem',
+              marginBottom: '1rem',
+            }}
+          >
             {error}
           </p>
         )}
@@ -77,13 +96,15 @@ function PasswordGate({ roomId, onSuccess }) {
           style={{
             width: '100%',
             padding: '10px 16px',
-            backgroundColor: submitting || !password ? '#94a3b8' : '#2563eb',
+            backgroundColor:
+              submitting || !password ? '#94a3b8' : '#2563eb',
             color: '#ffffff',
             border: 'none',
             borderRadius: '6px',
             fontWeight: '600',
             fontSize: '1rem',
-            cursor: submitting || !password ? 'not-allowed' : 'pointer',
+            cursor:
+              submitting || !password ? 'not-allowed' : 'pointer',
           }}
         >
           {submitting ? 'Unlocking...' : 'Unlock Room'}

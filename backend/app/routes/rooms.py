@@ -79,30 +79,35 @@ def get_room(
         raise HTTPException(status_code=404, detail="Room not found")
 
     room = result.data[0]
-    status = check_and_enforce_expiry(room)
+    
+    # 1. Safely check if room is already dead without triggering the burn wire yet
+    status = check_and_enforce_expiry(room, is_lookup=True)
     if status == "expired":
         raise HTTPException(status_code=410, detail="This room has expired.")
 
+    # 2. Enforce password protection
     verify_room_access(room, x_room_password)
+
+    # 3. Password is correct. Trip the burn wire if it's the first view of a sealed room.
+    if room.get("burn_after_view") and room.get("sealed") and not room.get("viewed"):
+        check_and_enforce_expiry(room, is_lookup=False)
 
     return room
 
 
 @router.get("/by-code/{short_code}", response_model=RoomResponse)
-def get_room_by_code(
-    short_code: str,
-    x_room_password: Optional[str] = Header(None, alias="X-Room-Password"),
-):
+def get_room_by_code(short_code: str):
     result = supabase.table("rooms").select("*").eq("short_code", short_code).execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="Room not found")
 
     room = result.data[0]
-    status = check_and_enforce_expiry(room)
+    
+    # Only returning metadata here to let the frontend route properly.
+    # MUST use is_lookup=True to prevent triggering burn wire during resolution
+    status = check_and_enforce_expiry(room, is_lookup=True)
     if status == "expired":
         raise HTTPException(status_code=410, detail="This room has expired.")
-
-    verify_room_access(room, x_room_password)
 
     return room
 
